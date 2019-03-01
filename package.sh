@@ -1,22 +1,23 @@
 # 获取描述文件的uuid并将描述文件copy到系统，前提将系统解锁
 rm -rf build
+rm -f GoHaierProvision.plist
 basedir=`cd $(dirname $0); pwd -P`
-
 #获取输入变量
 #macmini的password  5324nxh050622
 macPassword=$1
 echo "${macPassword}"
 
-#p12文件的位置 p12file/证书(haierios).p12
-P12_Path=$(readlink -f "p12file/ios.p12")
+#p12文件的位置 ios.p12
+p12Name=$2
+P12_Path="p12file/${p12Name}.p12"
 echo "${P12_Path}"
 
 #provision文件的名字 #COSMOIM
-mobileprovisionName="ios"
+mobileprovisionName=$3
 echo "${mobileprovisionName}"
 
 # BundleID com.haier.imapp
-mobileBundleId=$2
+mobileBundleId=$4
 echo "${mobileBundleId}"
 
 #provisionfile 文件
@@ -29,8 +30,9 @@ security import ${P12_Path} -k ~/Library/Keychains/login.keychain -P haierios -T
 
 
 # 将描述文件转换成plist
-mobileprovision_plist="mobileprovision.plist"
+mobileprovision_plist="GoHaierProvision.plist"
 security cms -D -i $mobileprovision_file > $mobileprovision_plist
+provision_name=`/usr/libexec/PlistBuddy -c "Print AppIDName" $mobileprovision_plist`
 provision_UUID=`/usr/libexec/PlistBuddy -c "Print UUID" $mobileprovision_plist`
 developmentTeamName=`/usr/libexec/PlistBuddy -c "Print TeamName" $mobileprovision_plist`
 code_sign_identity=`/usr/libexec/PlistBuddy -c 'Print DeveloperCertificates:0' $mobileprovision_plist | \
@@ -40,7 +42,6 @@ teamID=`/usr/libexec/PlistBuddy -c 'Print TeamIdentifier:0' $mobileprovision_pli
 echo "${provision_UUID}"
 echo "${developmentTeamName}"
 echo "${code_sign}"
-
 
 cp ${mobileprovision_file} ~/Library/MobileDevice/Provisioning\ Profiles/$provision_UUID.mobileprovision
 
@@ -54,7 +55,7 @@ echo "${buildResult}"
 
 /usr/libexec/PlistBuddy -c "Set teamID $teamID" Export.plist
 /usr/libexec/PlistBuddy -c "Delete:provisioningProfiles" Export.plist
-/usr/libexec/PlistBuddy -c "Add provisioningProfiles:${mobileBundleId} string ${mobileprovisionName}" Export.plist
+/usr/libexec/PlistBuddy -c "Add provisioningProfiles:${mobileBundleId} string ${provision_name}" Export.plist
 #默认是先走企业版的证书(集团内大多数应用走这个发版)
 /usr/libexec/PlistBuddy -c "Set method enterprise" Export.plist
 
