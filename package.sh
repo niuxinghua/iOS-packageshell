@@ -2,6 +2,7 @@
 rm -rf build
 rm -f GoHaierProvision.plist
 basedir=`cd $(dirname $0); pwd -P`
+ruby projectreference.ruby
 #获取输入变量
 #macmini的password  5324nxh050622
 macPassword=$1
