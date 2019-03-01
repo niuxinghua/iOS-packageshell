@@ -1,15 +1,35 @@
 # 获取描述文件的uuid并将描述文件copy到系统，前提将系统解锁
-security unlock-keychain -p 5324nxh0506222     /Users/niuxinghua/Library/Keychains/login.keychain
-P12_Path="/Users/niuxinghua/Desktop/ios/证书/cosmoim/证书(haierios).p12"
-echo "${P12_Path}"
-security import ${P12_Path} -k /Users/niuxinghua/Library/Keychains/login.keychain -P haierios -T /usr/bin/codesign
+rm -rf build
+basedir=`cd $(dirname $0); pwd -P`
 
-mobileprovisionName="COSMOIM"
-mobileBundleId="com.haier.imapp"
-mobileprovision_file="/Users/niuxinghua/Desktop/ios/证书/cosmoim/${mobileprovisionName}.mobileprovision"
+#获取输入变量
+#macmini的password  5324nxh050622
+macPassword=$1
+echo "${macPassword}"
+
+#p12文件的位置 p12file/证书(haierios).p12
+P12_Path=$(readlink -f "p12file/ios.p12")
+echo "${P12_Path}"
+
+#provision文件的名字 #COSMOIM
+mobileprovisionName="ios"
+echo "${mobileprovisionName}"
+
+# BundleID com.haier.imapp
+mobileBundleId=$2
+echo "${mobileBundleId}"
+
+#provisionfile 文件
+mobileprovision_file="provisionfile/${mobileprovisionName}.mobileprovision"
+echo "${mobileprovision_file}"
+
+security unlock-keychain -p ${macPassword}     ~/Library/Keychains/login.keychain
+security import ${P12_Path} -k ~/Library/Keychains/login.keychain -P haierios -T /usr/bin/codesign
+
+
 
 # 将描述文件转换成plist
-mobileprovision_plist="/Users/niuxinghua/Desktop/whocall/${mobileprovisionName}.plist"
+mobileprovision_plist="mobileprovision.plist"
 security cms -D -i $mobileprovision_file > $mobileprovision_plist
 provision_UUID=`/usr/libexec/PlistBuddy -c "Print UUID" $mobileprovision_plist`
 developmentTeamName=`/usr/libexec/PlistBuddy -c "Print TeamName" $mobileprovision_plist`
@@ -26,11 +46,18 @@ cp ${mobileprovision_file} ~/Library/MobileDevice/Provisioning\ Profiles/$provis
 
 #开始编译打包
 xcodebuild -workspace "GoHaier.xcworkspace" -scheme "GoHaier" -configuration Release -archivePath build/GoHaier.xcarchive clean archive build CODE_SIGN_IDENTITY="${code_sign}" PROVISIONING_PROFILE="${provision_UUID}" PRODUCT_BUNDLE_IDENTIFIER="${mobileBundleId}"
+echo "${buildResult}"
 
 
 #修改导出Export.plist里面的具体内容
+#{app-store, ad-hoc, enterprise, development, validation}
+
 /usr/libexec/PlistBuddy -c "Set teamID $teamID" Export.plist
+/usr/libexec/PlistBuddy -c "Delete:provisioningProfiles" Export.plist
 /usr/libexec/PlistBuddy -c "Add provisioningProfiles:${mobileBundleId} string ${mobileprovisionName}" Export.plist
+#默认是先走企业版的证书(集团内大多数应用走这个发版)
+/usr/libexec/PlistBuddy -c "Set method enterprise" Export.plist
+
 
 #导出ipa
 xcodebuild  -exportArchive \
@@ -38,6 +65,15 @@ xcodebuild  -exportArchive \
 -exportPath build/GoHaier.ipa \
 -exportOptionsPlist  Export.plist\
 
+#没打出包来可能是证书不是企业版那么 再d导出一个个人版本的
+if [ ! -d build/GoHaier.ipa ];
+then
+echo "打包appstore版本"
+/usr/libexec/PlistBuddy -c "Set method app-store" Export.plist
 
+xcodebuild  -exportArchive \
+-archivePath build/GoHaier.xcarchive \
+-exportPath build/GoHaier.ipa \
+-exportOptionsPlist  Export.plist\
 
-
+fi
