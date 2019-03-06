@@ -1,10 +1,10 @@
 # 获取描述文件的uuid并将描述文件copy到系统，前提将系统解锁
+basepath=$(cd `dirname $0`; pwd)
 rm -rf build
 rm -f GoHaierProvision.plist
-basedir=`cd $(dirname $0); pwd -P`
-ruby projectreference.ruby
 #获取输入变量
 #macmini的password  5324nxh050622
+ruby projectreference.ruby
 macPassword=$1
 echo "${macPassword}"
 
@@ -13,20 +13,27 @@ p12Name=$2
 P12_Path="p12file/${p12Name}.p12"
 echo "${P12_Path}"
 
+p12Password=$3
+echo "${p12Password}"
 #provision文件的名字 #COSMOIM
-mobileprovisionName=$3
+mobileprovisionName=$4
 echo "${mobileprovisionName}"
 
 # BundleID com.haier.imapp
-mobileBundleId=$4
+mobileBundleId=$5
 echo "${mobileBundleId}"
+
+bundleName=$6
+echo "${bundleName}"
+
+bundleVersion=$7
+echo "${bundleVersion}"
 
 #provisionfile 文件
 mobileprovision_file="provisionfile/${mobileprovisionName}.mobileprovision"
 echo "${mobileprovision_file}"
-
 security unlock-keychain -p ${macPassword}     ~/Library/Keychains/login.keychain
-security import ${P12_Path} -k ~/Library/Keychains/login.keychain -P haierios -T /usr/bin/codesign
+security import ${P12_Path} -k ~/Library/Keychains/login.keychain -P ${p12Password} -T /usr/bin/codesign
 
 
 
@@ -46,8 +53,195 @@ echo "${code_sign}"
 
 cp ${mobileprovision_file} ~/Library/MobileDevice/Provisioning\ Profiles/$provision_UUID.mobileprovision
 
+
+#修改安装后显示的名字
+infoplist="${basepath}/GoHaier/info.plist"
+
+
+sudo -S /usr/libexec/PlistBuddy -c "Set 'CFBundleName' $bundleName" $infoplist <<EOF
+${macPassword}
+EOF
+
+sudo -S /usr/libexec/PlistBuddy -c "Set 'CFBundleShortVersionString' $bundleVersion" $infoplist <<EOF
+${macPassword}
+EOF
+
+echo "${infoplist}"
+
+
+#需要将icon进行替换
+# 输出icon的目录
+
+icon_path="${basepath}/appIcons"
+# 1024 icon 特别处理
+icon_1024_path="${icon_path}/icon-1024.png"
+
+icon_asset_path="${basepath}/GoHaier/Assets.xcassets/AppIcon.appiconset"
+
+echo "${icon_1024_path}"
+if [ ! -f "$icon_1024_path" ]; then
+echo"icon不存在"
+else
+sips -s format png ${image_path} --out ${icon_1024_path} > /dev/null 2>&1
+[ $? -eq 0 ] && echo -e "info:\tresize copy 1024 successfully." || echo -e "info:\tresize copy 1024 failed."
+
+sips -z 1024 1024 ${icon_1024_path} > /dev/null 2>&1
+[ $? -eq 0 ] && echo -e "info:\tresize 1024 successfully." || echo -e "info:\tresize 1024 failed."
+
+prev_size_path=${icon_1024_path} #用于复制小图，减少内存消耗
+# 需要生成的图标尺寸
+icons=(180 167 152 120 87 80 60 58 40)
+for size in ${icons[@]}
+do
+size_path="${icon_path}/icon-${size}.png"
+cp ${prev_size_path} ${size_path}
+prev_size_path=${size_path}
+sips -Z $size ${size_path} > /dev/null 2>&1
+[ $? -eq 0 ] && echo -e "info:\tresize ${size} successfully." || echo -e "info:\tresize ${size} failed."
+done
+
+
+contents_json_path="${icon_path}/Contents.json"
+# 生成图标对应的配置文件
+echo '{
+"images" : [
+{
+"size" : "20x20",
+"idiom" : "iphone",
+"filename" : "icon-40.png",
+"scale" : "2x"
+},
+{
+"size" : "20x20",
+"idiom" : "iphone",
+"filename" : "icon-60.png",
+"scale" : "3x"
+},
+{
+"size" : "29x29",
+"idiom" : "iphone",
+"filename" : "icon-58.png",
+"scale" : "2x"
+},
+{
+"size" : "29x29",
+"idiom" : "iphone",
+"filename" : "icon-87.png",
+"scale" : "3x"
+},
+{
+"size" : "40x40",
+"idiom" : "iphone",
+"filename" : "icon-80.png",
+"scale" : "2x"
+},
+{
+"size" : "40x40",
+"idiom" : "iphone",
+"filename" : "icon-120.png",
+"scale" : "3x"
+},
+{
+"size" : "60x60",
+"idiom" : "iphone",
+"filename" : "icon-120.png",
+"scale" : "2x"
+},
+{
+"size" : "60x60",
+"idiom" : "iphone",
+"filename" : "icon-180.png",
+"scale" : "3x"
+},
+{
+"idiom" : "ipad",
+"size" : "20x20",
+"scale" : "1x"
+},
+{
+"size" : "20x20",
+"idiom" : "ipad",
+"filename" : "icon-40.png",
+"scale" : "2x"
+},
+{
+"idiom" : "ipad",
+"size" : "29x29",
+"scale" : "1x"
+},
+{
+"size" : "29x29",
+"idiom" : "ipad",
+"filename" : "icon-58.png",
+"scale" : "2x"
+},
+{
+"idiom" : "ipad",
+"size" : "40x40",
+"scale" : "1x"
+},
+{
+"size" : "40x40",
+"idiom" : "ipad",
+"filename" : "icon-80.png",
+"scale" : "2x"
+},
+{
+"idiom" : "ipad",
+"size" : "76x76",
+"scale" : "1x"
+},
+{
+"size" : "76x76",
+"idiom" : "ipad",
+"filename" : "icon-152.png",
+"scale" : "2x"
+},
+{
+"size" : "83.5x83.5",
+"idiom" : "ipad",
+"filename" : "icon-167.png",
+"scale" : "2x"
+},
+{
+"size" : "1024x1024",
+"idiom" : "ios-marketing",
+"filename" : "icon-1024.jpg",
+"scale" : "1x"
+}
+],
+"info" : {
+"version" : 1,
+"author" : "xcode"
+}
+}' > ${contents_json_path}
+
+
+#将所有的文件copy到xcassets目录下
+echo $icon_asset_path
+sudo -S rm -rf $icon_asset_path <<EOF
+${macPassword}
+EOF
+sudo -S cp -r $icon_path $icon_asset_path <<EOF
+${macPassword}
+EOF
+#echo "${macPassword}"|sudo rm -rf $icon_asset_path
+#echo "${macPassword}"|sudo cp -r $icon_path $icon_asset_path
+
+fi
+
+
+
+
+
+
+
+
+
+
 #开始编译打包
-xcodebuild -workspace "GoHaier.xcworkspace" -scheme "GoHaier" -configuration Release -archivePath build/GoHaier.xcarchive clean archive build CODE_SIGN_IDENTITY="${code_sign}" PROVISIONING_PROFILE="${provision_UUID}" PRODUCT_BUNDLE_IDENTIFIER="${mobileBundleId}"
+xcodebuild -workspace "GoHaier.xcworkspace" -scheme "GoHaier" -configuration Release -archivePath build/GoHaier.xcarchive clean archive build CODE_SIGN_IDENTITY="${code_sign}" PROVISIONING_PROFILE="${provision_UUID}" PRODUCT_BUNDLE_IDENTIFIER="${mobileBundleId}" -quiet
+
 echo "${buildResult}"
 
 
