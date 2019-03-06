@@ -29,6 +29,9 @@ echo "${bundleName}"
 bundleVersion=$7
 echo "${bundleVersion}"
 
+isRelease=$8
+echo "${isRelease}"
+
 #provisionfile 文件
 mobileprovision_file="provisionfile/${mobileprovisionName}.mobileprovision"
 echo "${mobileprovision_file}"
@@ -55,7 +58,7 @@ cp ${mobileprovision_file} ~/Library/MobileDevice/Provisioning\ Profiles/$provis
 
 
 #修改安装后显示的名字
-infoplist="${basepath}/GoHaier/info.plist"
+infoplist="${basepath}/GoHaier/Info.plist"
 
 
 sudo -S /usr/libexec/PlistBuddy -c "Set 'CFBundleName' $bundleName" $infoplist <<EOF
@@ -206,7 +209,7 @@ echo '{
 {
 "size" : "1024x1024",
 "idiom" : "ios-marketing",
-"filename" : "icon-1024.jpg",
+"filename" : "icon-1024.png",
 "scale" : "1x"
 }
 ],
@@ -252,9 +255,9 @@ echo "${buildResult}"
 /usr/libexec/PlistBuddy -c "Delete:provisioningProfiles" Export.plist
 /usr/libexec/PlistBuddy -c "Add provisioningProfiles:${mobileBundleId} string ${provision_name}" Export.plist
 #默认是先走企业版的证书(集团内大多数应用走这个发版)
+if [ "$isRelease"x = "release"x ];then
+echo "release"
 /usr/libexec/PlistBuddy -c "Set method enterprise" Export.plist
-
-
 #导出ipa
 xcodebuild  -exportArchive \
 -archivePath build/GoHaier.xcarchive \
@@ -273,3 +276,15 @@ xcodebuild  -exportArchive \
 -exportOptionsPlist  Export.plist\
 
 fi
+else
+#测试版本
+echo "打包个人版的adhoc版本"
+/usr/libexec/PlistBuddy -c "Set method ad-hoc" Export.plist
+
+xcodebuild  -exportArchive \
+-archivePath build/GoHaier.xcarchive \
+-exportPath build/GoHaier.ipa \
+-exportOptionsPlist  Export.plist\
+
+fi
+
