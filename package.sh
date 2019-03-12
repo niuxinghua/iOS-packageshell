@@ -32,6 +32,10 @@ echo "${bundleVersion}"
 isRelease=$8
 echo "${isRelease}"
 
+widgetVersion=$9
+echo "${widgetVersion}"
+
+
 #provisionfile 文件
 mobileprovision_file="provisionfile/${mobileprovisionName}.mobileprovision"
 echo "${mobileprovision_file}"
@@ -70,6 +74,12 @@ ${macPassword}
 EOF
 
 echo "${infoplist}"
+
+sudo -S /usr/libexec/PlistBuddy -c "Set 'WidgetVersion' $widgetVersion" $infoplist <<EOF
+${macPassword}
+EOF
+
+echo "${widgetVersion}"
 
 
 #需要将icon进行替换
@@ -234,8 +244,108 @@ EOF
 fi
 
 
+#设置launchimage
+launch_path="${basepath}/launchImages"
+# 1024 icon 特别处理
+launchimage_path="${launch_path}/launch.png"
 
+launch_asset_path="${basepath}/GoHaier/Assets.xcassets/LaunchImage.launchimage"
 
+if [ ! -f "$launchimage_path" ]; then
+echo"launchimage不存在"
+else
+#launchs=(LaunchImage-700-568h@2x.png LaunchImage-800-667h@2x.png LaunchImage-1200-Portrait-1792h@2x.png LaunchImage-1100-Portrait-2436h@3x.png LaunchImage-800-Portrait-736h@3x.png LaunchImage-1200-Portrait-2688h@3x.png)
+
+sips -z 960 640 launchImages/launch.png --out launchImages/Default@2x.png
+sips -z 1136 640 launchImages/launch.png --out launchImages/Default-568h@2x.png
+sips -z 1334 750 launchImages/launch.png --out launchImages/LaunchImage-800-667h@2x.png
+sips -z 1792 828 launchImages/launch.png --out launchImages/LaunchImage_1792x828.png
+sips -z 2208 1242 launchImages/launch.png --out launchImages/LaunchImage-800-Portrait-736h@3x.png
+sips -z 2436 1125 launchImages/launch.png --out launchImages/LaunchImage_2436x1125.png
+sips -z 2688 1242 launchImages/launch.png --out launchImages/LaunchImage_2688x1242.png
+launchimage_json_path="${launch_path}/Contents.json"
+# 生成图标对应的配置文件
+echo '{
+"images" : [
+{
+"extent" : "full-screen",
+"idiom" : "iphone",
+"subtype" : "2688h",
+"filename" : "LaunchImage_2688x1242.png",
+"minimum-system-version" : "12.0",
+"orientation" : "portrait",
+"scale" : "3x"
+},
+{
+"extent" : "full-screen",
+"idiom" : "iphone",
+"subtype" : "1792h",
+"filename" : "LaunchImage_1792x828.png",
+"minimum-system-version" : "12.0",
+"orientation" : "portrait",
+"scale" : "2x"
+},
+{
+"extent" : "full-screen",
+"idiom" : "iphone",
+"subtype" : "2436h",
+"filename" : "LaunchImage_2436x1125.png",
+"minimum-system-version" : "11.0",
+"orientation" : "portrait",
+"scale" : "3x"
+},
+{
+"extent" : "full-screen",
+"idiom" : "iphone",
+"subtype" : "736h",
+"filename" : "LaunchImage-800-Portrait-736h@3x.png",
+"minimum-system-version" : "8.0",
+"orientation" : "portrait",
+"scale" : "3x"
+},
+
+{
+"extent" : "full-screen",
+"idiom" : "iphone",
+"subtype" : "667h",
+"filename" : "LaunchImage-800-667h@2x.png",
+"minimum-system-version" : "8.0",
+"orientation" : "portrait",
+"scale" : "2x"
+},
+{
+"orientation" : "portrait",
+"idiom" : "iphone",
+"filename" : "Default@2x.png",
+"extent" : "full-screen",
+"minimum-system-version" : "7.0",
+"scale" : "2x"
+},
+{
+"extent" : "full-screen",
+"idiom" : "iphone",
+"subtype" : "retina4",
+"filename" : "Default-568h@2x.png",
+"minimum-system-version" : "7.0",
+"orientation" : "portrait",
+"scale" : "2x"
+}
+],
+"info" : {
+"version" : 1,
+"author" : "xcode"
+}
+}' > ${launchimage_json_path}
+
+#将所有的文件copy到xcassets目录下
+sudo -S rm -rf $launch_asset_path <<EOF
+${macPassword}
+EOF
+sudo -S cp -r $launch_path $launch_asset_path <<EOF
+${macPassword}
+EOF
+
+fi
 
 
 
@@ -244,7 +354,6 @@ fi
 
 #开始编译打包
 xcodebuild -workspace "GoHaier.xcworkspace" -scheme "GoHaier" -configuration Release -archivePath build/GoHaier.xcarchive clean archive build CODE_SIGN_IDENTITY="${code_sign}" PROVISIONING_PROFILE="${provision_UUID}" PRODUCT_BUNDLE_IDENTIFIER="${mobileBundleId}" -quiet
-
 echo "${buildResult}"
 
 
@@ -262,7 +371,7 @@ echo "release"
 xcodebuild  -exportArchive \
 -archivePath build/GoHaier.xcarchive \
 -exportPath build/GoHaier.ipa \
--exportOptionsPlist  Export.plist\
+-exportOptionsPlist  Export.plist \
 
 #没打出包来可能是证书不是企业版那么 再d导出一个个人版本的
 if [ ! -d build/GoHaier.ipa ];
@@ -273,7 +382,7 @@ echo "打包appstore版本"
 xcodebuild  -exportArchive \
 -archivePath build/GoHaier.xcarchive \
 -exportPath build/GoHaier.ipa \
--exportOptionsPlist  Export.plist\
+-exportOptionsPlist  Export.plist \
 
 fi
 else
@@ -284,7 +393,7 @@ echo "打包个人版的adhoc版本"
 xcodebuild  -exportArchive \
 -archivePath build/GoHaier.xcarchive \
 -exportPath build/GoHaier.ipa \
--exportOptionsPlist  Export.plist\
+-exportOptionsPlist  Export.plist \
 
 fi
 
