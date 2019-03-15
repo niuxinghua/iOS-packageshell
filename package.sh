@@ -41,6 +41,7 @@ mobileprovision_file="provisionfile/${mobileprovisionName}.mobileprovision"
 echo "${mobileprovision_file}"
 security unlock-keychain -p ${macPassword}     ~/Library/Keychains/login.keychain
 security import ${P12_Path} -k ~/Library/Keychains/login.keychain -P ${p12Password} -T /usr/bin/codesign
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k ${macPassword} ~/Library/Keychains/login.keychain-db
 
 
 
